@@ -27,6 +27,7 @@
 #include "GUIOSGManipulator.h"
 
 #include <string>
+#include <unordered_map>
 #include <microsim/traffic_lights/MSTLLogicControl.h>
 #include <utils/geom/Boundary.h>
 #include <utils/geom/Position.h>
@@ -131,7 +132,7 @@ public:
     struct OSGMovable {
         osg::ref_ptr<osg::PositionAttitudeTransform> pos;
         osg::ref_ptr<osg::ShapeDrawable> geom;
-        osg::ref_ptr<osg::Material> mat;
+        std::unordered_map<std::string, osg::ref_ptr<osg::Material>> mat;
         osg::ref_ptr<osg::Switch> lights;
         bool active;
     };

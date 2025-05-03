@@ -185,7 +185,8 @@ GUIOSGView::GUIOSGView(
     myViewer->setKeyEventSetsDone(0);
     myViewer->getCamera()->setGraphicsContext(myAdapter);
     myViewer->getCamera()->setViewport(0, 0, w, h);
-    myViewer->getCamera()->setNearFarRatio(0.005); // does not work together with setUpDepthPartitionForCamera
+    myViewer->getCamera()->setNearFarRatio(0.0005); // does not work together with setUpDepthPartitionForCamera
+    // myViewer->getCamera()->setProjectionMatrixAsPerspective(75.0, w/h, 0.0005, 1.0);
     myViewer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
     myViewer->addEventHandler(new PickHandler(this));
     osg::Vec3d lookFrom, lookAt, up;
@@ -498,7 +499,8 @@ GUIOSGView::onPaint(FXObject*, FXSelector, void*) {
                 if (!GUIBaseVehicle::setFunctionalColor(myVisualizationSettings->vehicleColorer.getActive(), veh, col)) {
                     col = myVisualizationSettings->vehicleColorer.getScheme().getColor(veh->getColorValue(*myVisualizationSettings, myVisualizationSettings->vehicleColorer.getActive()));
                 }
-                myVehicles[veh].mat->setDiffuse(osg::Material::FRONT_AND_BACK, osg::Vec4d(col.red() / 255., col.green() / 255., col.blue() / 255., col.alpha() / 255.));
+                // col = RGBColor(rand() % 255, rand() % 255, rand() % 255, 255);
+                GUIOSGBuilder::setVehBodyColor(myVehicles[veh], osg::Vec4d(col.red() / 255., col.green() / 255., col.blue() / 255., col.alpha() / 255.));
                 myVehicles[veh].lights->setValue(0, veh->signalSet(MSVehicle::VEH_SIGNAL_BLINKER_RIGHT | MSVehicle::VEH_SIGNAL_BLINKER_EMERGENCY));
                 myVehicles[veh].lights->setValue(1, veh->signalSet(MSVehicle::VEH_SIGNAL_BLINKER_LEFT | MSVehicle::VEH_SIGNAL_BLINKER_EMERGENCY));
                 myVehicles[veh].lights->setValue(2, veh->signalSet(MSVehicle::VEH_SIGNAL_BRAKELIGHT));
@@ -564,7 +566,7 @@ GUIOSGView::onPaint(FXObject*, FXSelector, void*) {
             if (!GUIPerson::setFunctionalColor(myVisualizationSettings->personColorer.getActive(), actualPerson, col)) {
                 col = myVisualizationSettings->personColorer.getScheme().getColor(actualPerson->getColorValue(*myVisualizationSettings, myVisualizationSettings->vehicleColorer.getActive()));
             }
-            myPersons[person].mat->setDiffuse(osg::Material::FRONT_AND_BACK, osg::Vec4d(col.red() / 255., col.green() / 255., col.blue() / 255., col.alpha() / 255.));
+            myPersons[person].mat["body"]->setDiffuse(osg::Material::FRONT_AND_BACK, osg::Vec4d(col.red() / 255., col.green() / 255., col.blue() / 255., col.alpha() / 255.));
         }
         ge->releasePersons();
     }

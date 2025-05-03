@@ -45,12 +45,15 @@
 #include "GUIOSGBuilder.h"
 
 //#define DEBUG_TESSEL
+#define VERBOSE_MODEL_EXTRACTION true
 
 // ===========================================================================
 // static member variables
 // ===========================================================================
 
 std::map<std::string, osg::ref_ptr<osg::Node> > GUIOSGBuilder::myCars;
+std::map<std::string, std::map<std::string, osg::ref_ptr<osg::Node>>> GUIOSGBuilder::myCarsParts;
+std::map<std::string, std::unordered_map<std::string, osg::ref_ptr<osg::Material>>> GUIOSGBuilder::myCarsMaterials;
 
 // ===========================================================================
 // member method definitions
@@ -585,6 +588,102 @@ GUIOSGBuilder::setShapeState(osg::ref_ptr<osg::ShapeDrawable> shape) {
 }
 
 
+void extractMaterials(osg::Node* node, std::unordered_map<std::string, osg::ref_ptr<osg::Material>> &materials, bool verbose = false) {
+    if (!node) return;
+
+    if (verbose) std::cout << "Node: " << node->getName() << std::endl;
+    osg::Geode* geode = dynamic_cast<osg::Geode*>(node);
+    if (geode) {
+        if (verbose) std::cout << "Geode: " << geode->getName() << std::endl;
+        for (unsigned int i = 0; i < geode->getNumDrawables(); ++i) {
+            osg::StateSet* stateSet = geode->getDrawable(i)->getStateSet();
+            if (stateSet) {
+                osg::Material* material = dynamic_cast<osg::Material*>(
+                    stateSet->getAttribute(osg::StateAttribute::MATERIAL)
+                );
+
+                if (material) {
+                    materials[material->getName()] = material;
+                    if (verbose) {
+                        osg::Vec4 ambient = material->getAmbient(osg::Material::FRONT);
+                        osg::Vec4 diffuse = material->getDiffuse(osg::Material::FRONT);
+                        osg::Vec4 specular = material->getSpecular(osg::Material::FRONT);
+                        float shininess = material->getShininess(osg::Material::FRONT);
+
+                        std::cout << "Material found: " << material->getName() << std::endl;
+                        std::cout << "Ambient: " << ambient.r() << ", " << ambient.g() << ", " << ambient.b() << ", " << ambient.a() << "\n";
+                        std::cout << "Diffuse: " << diffuse.r() << ", " << diffuse.g() << ", " << diffuse.b() << ", " << diffuse.a() << "\n";
+                        std::cout << "Specular: " << specular.r() << ", " << specular.g() << ", " << specular.b() << ", " << specular.a() << "\n";
+                        std::cout << "Shininess: " << shininess << "\n";
+                    }
+                } else {
+                    materials[geode->getDrawable(i)->getName()] = new osg::Material();
+                    materials[geode->getDrawable(i)->getName()]->setName(geode->getDrawable(i)->getName());
+                    stateSet->setAttribute(materials[geode->getDrawable(i)->getName()], osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE | osg::StateAttribute::PROTECTED);
+                    stateSet->setMode(GL_BLEND, osg::StateAttribute::OVERRIDE | osg::StateAttribute::PROTECTED | osg::StateAttribute::ON);
+
+                    if (verbose) {
+                        std::cout << "New material: " << material->getName() << std::endl;
+                    }
+                }
+            }
+        }
+    }
+
+    osg::Group* group = dynamic_cast<osg::Group*>(node);
+    if (group) {
+        if (verbose) std::cout << "Children number: " << group->getNumChildren() << std::endl;
+        for (unsigned int i = 0; i < group->getNumChildren(); ++i) {
+            extractMaterials(group->getChild(i), materials, verbose);
+        }
+    }
+}
+
+
+void
+GUIOSGBuilder::setVehBodyColor(GUIOSGView::OSGMovable& m, osg::Vec4d color) {
+    auto it = m.mat.find("body");
+    if (it == m.mat.end()) {
+        for (auto& pair : m.mat) {
+            pair.second->setDiffuse(osg::Material::FRONT_AND_BACK, color);
+        }
+    } else {
+        it->second->setDiffuse(osg::Material::FRONT, color);
+    }
+}
+
+
+void processVehicleLightNode(osg::Node *node, std::string materialName, osg::Vec4d color) {
+    if (!node) return;
+
+    osg::Geode* geode = dynamic_cast<osg::Geode*>(node);
+    if (geode) {
+        for (unsigned int i = 0; i < geode->getNumChildren(); ++i) {
+            osg::StateSet* stateSet = geode->getDrawable(i)->getStateSet();
+            if (stateSet) {
+                osg::Material* material = dynamic_cast<osg::Material*>(
+                    stateSet->getAttribute(osg::StateAttribute::MATERIAL));
+
+                if (material && material->getName() == materialName) {
+                    material->setEmission(osg::Material::FRONT_AND_BACK, color);
+                } else {
+                    geode->setNodeMask(0x0);
+                }
+                stateSet->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+                // stateSet->setMode(GL_LIGHTING, osg::StateAttribute::ON);
+            }
+        }
+    }
+
+    osg::Group* group = dynamic_cast<osg::Group*>(node);
+    if (group) {
+        for (unsigned int i = 0; i < group->getNumChildren(); ++i) {
+            processVehicleLightNode(group->getChild(i), materialName, color);
+        }
+    }
+}
+
+
 GUIOSGView::OSGMovable
 GUIOSGBuilder::buildMovable(const MSVehicleType& type) {
     GUIOSGView::OSGMovable m;
@@ -593,6 +692,9 @@ GUIOSGBuilder::buildMovable(const MSVehicleType& type) {
     const std::string& osgFile = type.getOSGFile();
     if (myCars.find(osgFile) == myCars.end()) {
         myCars[osgFile] = osgDB::readNodeFile(osgFile);
+        extractMaterials(myCars[osgFile], myCarsMaterials[osgFile], VERBOSE_MODEL_EXTRACTION);
+        m.mat = myCarsMaterials[osgFile];
+
         if (myCars[osgFile] == 0) {
             WRITE_ERRORF(TL("Could not load '%'. The model is replaced by a cone shape."), osgFile);
             osg::PositionAttitudeTransform* rot = new osg::PositionAttitudeTransform();
@@ -602,13 +704,67 @@ GUIOSGBuilder::buildMovable(const MSVehicleType& type) {
                                        0., osg::Vec3(0, 0, 1)));
             myCars[osgFile] = rot;
         }
+
+        if (m.mat.find("turn_left") != m.mat.end()) {
+            myCarsParts[osgFile]["turn_left_on"] = dynamic_cast<osg::Node*>(myCars[osgFile]->clone(osg::CopyOp::DEEP_COPY_ALL));
+            myCarsParts[osgFile]["turn_left_off"] = dynamic_cast<osg::Node*>(myCars[osgFile]->clone(osg::CopyOp::DEEP_COPY_ALL));
+
+            processVehicleLightNode(myCarsParts[osgFile]["turn_left_on"], "turn_left", osg::Vec4(1.0f, 0.5f, 0.0f, 1.0f));
+            processVehicleLightNode(myCarsParts[osgFile]["turn_left_off"], "turn_left", osg::Vec4(0.0f, 0.0f, 0.0f, 1.0f));
+        } else {
+            osg::Geode* leftGeode = new osg::Geode();
+            osg::ShapeDrawable* leftSignal = new osg::ShapeDrawable(new osg::Sphere(osg::Vec3d(-(type.getWidth() / 2. - enlarge), -type.getLength() / 4., type.getHeight() / 2.), 0.2f));
+            leftGeode->addDrawable(leftSignal);
+            setShapeState(leftSignal);
+            leftSignal->setColor(osg::Vec4(1.0f, 0.5f, 0.0f, 0.8f));
+
+            myCarsParts[osgFile]["turn_left_on"] = leftGeode;
+            myCarsParts[osgFile]["turn_left_off"] = new osg::Geode();
+        }
+
+        if (m.mat.find("turn_right") != m.mat.end()) {
+            myCarsParts[osgFile]["turn_right_on"] = dynamic_cast<osg::Node*>(myCars[osgFile]->clone(osg::CopyOp::DEEP_COPY_ALL));
+            myCarsParts[osgFile]["turn_right_off"] = dynamic_cast<osg::Node*>(myCars[osgFile]->clone(osg::CopyOp::DEEP_COPY_ALL));
+
+            processVehicleLightNode(myCarsParts[osgFile]["turn_right_on"], "turn_right", osg::Vec4(1.0f, 0.5f, 0.0f, 1.0f));
+            processVehicleLightNode(myCarsParts[osgFile]["turn_right_off"], "turn_right", osg::Vec4(0.0f, 0.0f, 0.0f, 1.0f));
+        } else {
+            osg::Geode* rightGeode = new osg::Geode();
+            osg::ShapeDrawable* rightSignal = new osg::ShapeDrawable(new osg::Sphere(osg::Vec3d((type.getWidth() / 2. - enlarge), -type.getLength() / 4., type.getHeight() / 2.), 0.2f));
+            rightGeode->addDrawable(rightSignal);
+            setShapeState(rightSignal);
+            rightSignal->setColor(osg::Vec4(1.0f, 0.5f, 0.0f, 0.8f));
+
+            myCarsParts[osgFile]["turn_right_on"] = rightGeode;
+            myCarsParts[osgFile]["turn_right_off"] = new osg::Geode();
+        }
+
+        if (m.mat.find("stoplight") != m.mat.end()) {
+            myCarsParts[osgFile]["stoplight"] =  dynamic_cast<osg::Node*>(myCars[osgFile]->clone(osg::CopyOp::DEEP_COPY_ALL));
+
+            processVehicleLightNode(myCarsParts[osgFile]["stoplight"], "stoplight", osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f));
+        } else {
+            osg::Geode* stoplightGeode = new osg::Geode();
+            osg::CompositeShape* comp = new osg::CompositeShape();
+            comp->addChild(new osg::Sphere(osg::Vec3d(-(type.getWidth() / 2. - enlarge), type.getLength() / 4., type.getHeight() / 2.), .2f));
+            comp->addChild(new osg::Sphere(osg::Vec3d(type.getWidth() / 2. - enlarge, type.getLength() / 4., type.getHeight() / 2.), .2f));
+            osg::ShapeDrawable* brake = new osg::ShapeDrawable(comp);
+            brake->setColor(osg::Vec4(1.0f, 0.0f, 0.0f, 0.8f));
+            stoplightGeode->addDrawable(brake);
+            setShapeState(brake);
+
+            myCarsParts[osgFile]["stoplight"] = stoplightGeode;
+        }
+
+        // processVehicleNode(myCars[osgFile]);
     }
+    m.mat = myCarsMaterials[osgFile];
     osg::Node* carNode = myCars[osgFile];
     if (carNode != nullptr) {
         osg::ComputeBoundsVisitor bboxCalc;
         carNode->accept(bboxCalc);
         const osg::BoundingBox& bbox = bboxCalc.getBoundingBox();
-        osg::PositionAttitudeTransform* base = new osg::PositionAttitudeTransform();
+        osg::ref_ptr<osg::PositionAttitudeTransform> base = new osg::PositionAttitudeTransform();
         base->addChild(carNode);
         base->setPivotPoint(osg::Vec3d((bbox.xMin() + bbox.xMax()) / 2., bbox.yMin(), bbox.zMin()));
         base->setScale(osg::Vec3d(type.getWidth() / (bbox.xMax() - bbox.xMin()),
@@ -616,51 +772,44 @@ GUIOSGBuilder::buildMovable(const MSVehicleType& type) {
                                   type.getHeight() / (bbox.zMax() - bbox.zMin())));
         m.pos->addChild(base);
 
-        // material for coloring the person or vehicle body
-        m.mat = new osg::Material();
-        osg::ref_ptr<osg::StateSet> ss = base->getOrCreateStateSet();
-        ss->setAttribute(m.mat, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE | osg::StateAttribute::PROTECTED);
-        ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
-        ss->setMode(GL_BLEND, osg::StateAttribute::OVERRIDE | osg::StateAttribute::PROTECTED | osg::StateAttribute::ON);
-    }
-    if (type.getVehicleClass() != SVC_PEDESTRIAN) {
-        m.lights = new osg::Switch();
-        for (double sideFactor = -1.; sideFactor < 2.5; sideFactor += 2.) {
-            osg::Geode* geode = new osg::Geode();
-            osg::ShapeDrawable* right = new osg::ShapeDrawable(new osg::Sphere(osg::Vec3d((type.getWidth() / 2. + enlarge)*sideFactor, 0., type.getHeight() / 2.), 0.2f));
-            geode->addDrawable(right);
-            //pat->addChild(geode);
-            setShapeState(right);
-            right->setColor(osg::Vec4(1.f, .5f, 0.f, .8f));
-            osg::Sequence* seq = new osg::Sequence();
-            // Wikipedia says about 1.5Hz
-            seq->addChild(geode, .33);
-            seq->addChild(new osg::Geode(), .33);
-            // loop through all children
-            seq->setInterval(osg::Sequence::LOOP, 0, -1);
-            // real-time playback, repeat indefinitely
-            seq->setDuration(1.0f, -1);
-            // must be started explicitly
-            seq->setMode(osg::Sequence::START);
-            m.lights->addChild(seq);
+        // create material if there is none
+        if (m.mat.empty()) {
+            m.mat["body"] = new osg::Material();
+            osg::ref_ptr<osg::StateSet> ss = base->getOrCreateStateSet();
+            ss->setAttribute(m.mat["body"], osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE | osg::StateAttribute::PROTECTED);
+            ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+            ss->setMode(GL_BLEND, osg::StateAttribute::OVERRIDE | osg::StateAttribute::PROTECTED | osg::StateAttribute::ON);
         }
-        osg::Geode* geode = new osg::Geode();
-        osg::CompositeShape* comp = new osg::CompositeShape();
-        comp->addChild(new osg::Sphere(osg::Vec3d(-(type.getWidth() / 2. + enlarge), type.getLength() + enlarge, type.getHeight() / 2.), .2f));
-        comp->addChild(new osg::Sphere(osg::Vec3d(type.getWidth() / 2. + enlarge, type.getLength() + enlarge, type.getHeight() / 2.), .2f));
-        osg::ShapeDrawable* brake = new osg::ShapeDrawable(comp);
-        brake->setColor(osg::Vec4(1.f, 0.f, 0.f, .8f));
-        geode->addDrawable(brake);
-        setShapeState(brake);
-        m.lights->addChild(geode);
+        // create lights
+        if (type.getVehicleClass() != SVC_PEDESTRIAN) {
+            m.lights = new osg::Switch();
 
-        osg::Vec3d center(0, -type.getLength() / 2., 0.);
-        osg::PositionAttitudeTransform* ellipse = new osg::PositionAttitudeTransform();
-        ellipse->addChild(geode);
-        ellipse->addChild(m.lights);
-        ellipse->setPivotPoint(center);
-        ellipse->setPosition(center);
-        m.pos->addChild(ellipse);
+            osg::ref_ptr<osg::Sequence> seq_right = new osg::Sequence();
+            seq_right->addChild(myCarsParts[osgFile]["turn_right_on"], .33);
+            seq_right->addChild(myCarsParts[osgFile]["turn_right_off"], .33);
+            seq_right->setInterval(osg::Sequence::LOOP, 0, -1);
+            seq_right->setDuration(1.0f, -1);
+            seq_right->setMode(osg::Sequence::START);
+            m.lights->addChild(seq_right);
+
+            osg::ref_ptr<osg::Sequence> seq_left = new osg::Sequence();
+            seq_left->addChild(myCarsParts[osgFile]["turn_left_on"], .33);
+            seq_left->addChild(myCarsParts[osgFile]["turn_left_off"], .33);
+            seq_left->setInterval(osg::Sequence::LOOP, 0, -1);
+            seq_left->setDuration(1.0f, -1);
+            seq_left->setMode(osg::Sequence::START);
+            m.lights->addChild(seq_left);
+
+            m.lights->addChild(myCarsParts[osgFile]["stoplight"]);
+
+            osg::ref_ptr<osg::PositionAttitudeTransform> lightBase = new osg::PositionAttitudeTransform();
+            lightBase->addChild(m.lights);
+            lightBase->setPivotPoint(osg::Vec3d((bbox.xMin() + bbox.xMax()) / 2., bbox.yMin(), bbox.zMin()));
+            lightBase->setScale(osg::Vec3d(type.getWidth() / (bbox.xMax() - bbox.xMin()),
+                                      type.getLength() / (bbox.yMax() - bbox.yMin()),
+                                      type.getHeight() / (bbox.zMax() - bbox.zMin())));
+            m.pos->addChild(lightBase);
+        }
     }
     m.active = true;
     return m;

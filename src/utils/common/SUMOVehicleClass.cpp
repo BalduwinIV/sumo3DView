@@ -173,7 +173,7 @@ const std::set<std::string> DEFAULT_VTYPES({DEFAULT_VTYPE_ID, DEFAULT_PEDTYPE_ID
 const double DEFAULT_VEH_PROB(1.);
 const double DEFAULT_VEH_MASS(1500.);
 const double DEFAULT_VEH_WIDTH(1.8);
-const double DEFAULT_VEH_HEIGHT(1.5);
+const double DEFAULT_VEH_HEIGHT(1.3);
 const double DEFAULT_VEH_SHUT_OFF_STOP(300.);
 
 const double DEFAULT_PEDESTRIAN_SPEED(5. / 3.6);
