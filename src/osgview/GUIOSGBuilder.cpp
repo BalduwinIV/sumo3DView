@@ -963,24 +963,39 @@ GUIOSGBuilder::buildMovable(const MSVehicleType& type) {
         // create lights
         if (type.getVehicleClass() != SVC_PEDESTRIAN) {
             m.lights = new osg::Switch();
-
+            float scaleFactor = 1.001f;
             osg::ref_ptr<osg::Sequence> seq_right = new osg::Sequence();
-            seq_right->addChild(myCarsParts[osgFile]["turn_right_on"], .33);
-            seq_right->addChild(myCarsParts[osgFile]["turn_right_off"], .33);
+            osg::ref_ptr<osg::MatrixTransform> turnRightOnTransform = new osg::MatrixTransform();
+            turnRightOnTransform->addChild(myCarsParts[osgFile]["turn_right_on"]);
+            turnRightOnTransform->setMatrix(osg::Matrix::scale(scaleFactor, scaleFactor, scaleFactor));
+            seq_right->addChild(turnRightOnTransform, .33);
+            osg::ref_ptr<osg::MatrixTransform> turnRightOffTransform = new osg::MatrixTransform();
+            turnRightOffTransform->addChild(myCarsParts[osgFile]["turn_right_off"]);
+            turnRightOffTransform->setMatrix(osg::Matrix::scale(scaleFactor, scaleFactor, scaleFactor));
+            seq_right->addChild(turnRightOffTransform, .33);
             seq_right->setInterval(osg::Sequence::LOOP, 0, -1);
             seq_right->setDuration(1.0f, -1);
             seq_right->setMode(osg::Sequence::START);
             m.lights->addChild(seq_right);
 
             osg::ref_ptr<osg::Sequence> seq_left = new osg::Sequence();
-            seq_left->addChild(myCarsParts[osgFile]["turn_left_on"], .33);
-            seq_left->addChild(myCarsParts[osgFile]["turn_left_off"], .33);
+            osg::ref_ptr<osg::MatrixTransform> turnLeftOnTransform = new osg::MatrixTransform();
+            turnLeftOnTransform->addChild(myCarsParts[osgFile]["turn_left_on"]);
+            turnLeftOnTransform->setMatrix(osg::Matrix::scale(scaleFactor, scaleFactor, scaleFactor));
+            seq_left->addChild(turnLeftOnTransform, .33);
+            osg::ref_ptr<osg::MatrixTransform> turnLeftOffTransform = new osg::MatrixTransform();
+            turnLeftOffTransform->addChild(myCarsParts[osgFile]["turn_left_off"]);
+            turnLeftOffTransform->setMatrix(osg::Matrix::scale(scaleFactor, scaleFactor, scaleFactor));
+            seq_left->addChild(turnLeftOffTransform, .33);
             seq_left->setInterval(osg::Sequence::LOOP, 0, -1);
             seq_left->setDuration(1.0f, -1);
             seq_left->setMode(osg::Sequence::START);
             m.lights->addChild(seq_left);
 
-            m.lights->addChild(myCarsParts[osgFile]["stoplight"]);
+            osg::ref_ptr<osg::MatrixTransform> stoplightTransform = new osg::MatrixTransform();
+            stoplightTransform->addChild(myCarsParts[osgFile]["stoplight"]);
+            stoplightTransform->setMatrix(osg::Matrix::scale(scaleFactor, scaleFactor, scaleFactor));
+            m.lights->addChild(stoplightTransform);
 
             osg::ref_ptr<osg::PositionAttitudeTransform> lightBase = new osg::PositionAttitudeTransform();
             lightBase->addChild(m.lights);
