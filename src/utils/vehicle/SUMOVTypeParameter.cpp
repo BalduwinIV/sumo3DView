@@ -75,7 +75,7 @@ SUMOVTypeParameter::VClassDefaultValues::VClassDefaultValues(SUMOVehicleClass vc
     speedFactor("normc", 1.0, 0.0, 0.2, 2.0),
     personCapacity(4),
     containerCapacity(0),
-    osgFile("car-normal-citrus.obj"),
+    osgFile("lightVehicle.obj"),
     carriageLength(-1),
     locomotiveLength(-1),
     carriageDoors(2),
@@ -158,7 +158,7 @@ SUMOVTypeParameter::VClassDefaultValues::VClassDefaultValues(SUMOVehicleClass vc
             width = 2.4;
             height = 2.4;
             shape = SUMOVehicleShape::TRUCK;
-            osgFile = "car-microcargo-citrus.obj";
+            osgFile = "van.obj";
             personCapacity = 2;
             containerCapacity = 1;
             emissionClass = PollutantsInterface::getClassByName(EMPREFIX + "HDV", vclass);
