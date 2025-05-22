@@ -169,12 +169,8 @@ GUIOSGView::GUIOSGView(
     // calculate camera frustum to scale the ground plane all across
     double left, right, bottom, top, zNear, zFar;
     myViewer->getCamera()->getProjectionMatrixAsFrustum(left, right, bottom, top, zNear, zFar);
-    myRoot = GUIOSGBuilder::buildOSGScene(myGreenLight, myYellowLight, myRedLight, myRedYellowLight, myPoleBase);
     myPlane = new osg::MatrixTransform();
-    myPlane->setCullCallback(new ExcludeFromNearFarComputationCallback());
-    myPlane->addChild(GUIOSGBuilder::buildPlane((float)(zFar - zNear)));
-    myPlane->addUpdateCallback(new PlaneMoverCallback(myViewer->getCamera()));
-    myRoot->addChild(myPlane);
+    myRoot = GUIOSGBuilder::buildOSGScene(myGreenLight, myYellowLight, myRedLight, myRedYellowLight, myPoleBase, myPlane);
 
     // Create skybox
     osg::Image* px = osgDB::readImageFile("px.png");

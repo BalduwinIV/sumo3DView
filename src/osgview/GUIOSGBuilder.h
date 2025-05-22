@@ -55,7 +55,8 @@ class GUIJunctionWrapper;
  */
 class GUIOSGBuilder {
 public:
-    static osg::Group* buildOSGScene(osg::Node* const tlg, osg::Node* const tly, osg::Node* const tlr, osg::Node* const tlu, osg::Node* const pole);
+    static osg::Group* buildOSGScene(osg::Node* const tlg, osg::Node* const tly, osg::Node* const tlr, osg::Node* const tlu, osg::Node* const pole, osg::
+                                     MatrixTransform *plane);
 
     static void buildDecal(const GUISUMOAbstractView::Decal& d, osg::Group& addTo);
 
@@ -73,8 +74,8 @@ public:
     static void setVehBodyColor(GUIOSGView::OSGMovable& m, osg::Vec4d color);
 
     static osg::Node* buildSkybox(osg::Image* px, osg::Image* nx, osg::Image* py, osg::Image* ny, osg::Image* pz, osg::Image* nz);
-    static osg::Node* buildPlane(const float length = 1000.f); // OSG needs float coordinates here
 
+    static osg::Node* buildPlane(const float baseZ = -0.1f); // OSG needs float coordinates here
 private:
     static osg::PositionAttitudeTransform* createTrafficLightState(const GUISUMOAbstractView::Decal& d, osg::Node* tl, const double withPole, const double size, osg::Vec4d color);
 

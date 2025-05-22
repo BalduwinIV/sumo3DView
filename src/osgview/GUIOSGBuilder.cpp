@@ -60,8 +60,16 @@ std::map<std::string, std::unordered_map<std::string, osg::ref_ptr<osg::Material
 // member method definitions
 // ===========================================================================
 
+float getRandomFloat(float min, float max) {
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    std::uniform_real_distribution<float> dist(min, max);
+    return dist(gen);
+}
+
 osg::Group*
-GUIOSGBuilder::buildOSGScene(osg::Node* const tlg, osg::Node* const tly, osg::Node* const tlr, osg::Node* const tlu, osg::Node* const pole) {
+GUIOSGBuilder::buildOSGScene(osg::Node* const tlg, osg::Node* const tly, osg::Node* const tlr, osg::Node* const tlu, osg::Node* const pole, osg::
+                             MatrixTransform *plane) {
     osgUtil::Tessellator tesselator;
     osg::Group* root = new osg::Group();
     GUINet* net = static_cast<GUINet*>(MSNet::getInstance());
@@ -75,6 +83,28 @@ GUIOSGBuilder::buildOSGScene(osg::Node* const tlg, osg::Node* const tly, osg::No
     for (int index = 0; index < (int)net->myJunctionWrapper.size(); ++index) {
         buildOSGJunctionGeometry(*net->myJunctionWrapper[index], *root, tesselator);
     }
+    // build polygons
+    GUIShapeContainer& shapeContainer = dynamic_cast<GUIShapeContainer&>(GUINet::getInstance()->getShapeContainer());
+    float shapeLowestLayer = 0;
+    for (auto polygonWithID : shapeContainer.getPolygons()) {
+        if (polygonWithID.second->getShapeLayer() < shapeLowestLayer) {
+            shapeLowestLayer = polygonWithID.second->getShapeLayer();
+        }
+    }
+
+    plane->addChild(buildPlane((shapeLowestLayer - 1) * 0.1f));
+    root->addChild(plane);
+
+    for (auto polygonWithID : shapeContainer.getPolygons()) {
+        float height = 0.0f;
+        size_t dotPos = polygonWithID.second->getShapeType().find('.');
+        if (dotPos != std::string::npos && polygonWithID.second->getShapeType().substr(0, dotPos) == "building") {
+            height = getRandomFloat(3.0f, 12.0f);
+        }
+
+        buildOSGPolygonGeometry(*polygonWithID.second, *root, tesselator, height);
+    }
+
     // build traffic lights
     GUISUMOAbstractView::Decal d;
     const std::vector<std::string> tlids = net->getTLSControl().getAllTLIds();
@@ -208,6 +238,7 @@ GUIOSGBuilder::buildOSGEdgeGeometry(const MSEdge& edge,
         osg::ref_ptr<osg::StateSet> ss = geode->getOrCreateStateSet();
         ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
         ss->setMode(GL_BLEND, osg::StateAttribute::OVERRIDE | osg::StateAttribute::PROTECTED | osg::StateAttribute::ON);
+        ss->setMode(GL_LIGHTING, osg::StateAttribute::ON);
 
         if (shape.size() > 2) {
             tessellator.retessellatePolygons(*geom);
@@ -258,11 +289,113 @@ GUIOSGBuilder::buildOSGJunctionGeometry(GUIJunctionWrapper& junction,
     osg::ref_ptr<osg::StateSet> ss = geode->getOrCreateStateSet();
     ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
     ss->setMode(GL_BLEND, osg::StateAttribute::OVERRIDE | osg::StateAttribute::PROTECTED | osg::StateAttribute::ON);
+    ss->setMode(GL_LIGHTING, osg::StateAttribute::ON);
 
     if (shape.size() > 4) {
         tessellator.retessellatePolygons(*geom);
     }
     junction.setGeometry(geom);
+}
+
+void GUIOSGBuilder::buildOSGPolygonGeometry(const SUMOPolygon& polygon,
+                                            osg::Group& addTo,
+                                            osgUtil::Tessellator& tessellator,
+                                            float height) {
+    const PositionVector& shape = polygon.getShape();
+    if (shape.size() < 3) return;
+
+    float baseZ = (float)polygon.getShapeLayer() / 10;;
+    float topZ = baseZ + height;
+
+    osg::ref_ptr<osg::Geode> geode = new osg::Geode();
+    geode->setName("polygon: " + polygon.getID());
+    addTo.addChild(geode);
+
+    osg::ref_ptr<osg::StateSet> ss = geode->getOrCreateStateSet();
+    ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+    ss->setMode(GL_BLEND, osg::StateAttribute::OVERRIDE | osg::StateAttribute::ON);
+    ss->setMode(GL_LIGHTING, osg::StateAttribute::ON);
+
+    osg::Vec4ub color(polygon.getShapeColor().red(), polygon.getShapeColor().green(), polygon.getShapeColor().blue(), 255);
+
+    // Top and bottom faces
+    auto makeFace = [&](float z, bool reverseWinding) {
+        osg::ref_ptr<osg::Geometry> geom = new osg::Geometry();
+        osg::ref_ptr<osg::Vec3Array> osg_coords = new osg::Vec3Array();
+        for (const Position& p : shape) {
+            osg_coords->push_back(osg::Vec3((float)p.x(), (float)p.y(), z));
+        }
+        if (reverseWinding) {
+            std::reverse(osg_coords->begin(), osg_coords->end());
+        }
+        geom->setVertexArray(osg_coords);
+        geom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::POLYGON, 0, (int)shape.size()));
+
+        osg::ref_ptr<osg::Vec3Array> osg_normals = new osg::Vec3Array();
+        osg_normals->push_back(osg::Vec3(0, 0, (z == topZ) ? 1.0f : -1.0f));
+        geom->setNormalArray(osg_normals, osg::Array::BIND_OVERALL);
+
+        osg::ref_ptr<osg::Vec4ubArray> osg_colors = new osg::Vec4ubArray();
+        osg_colors->push_back(color);
+        geom->setColorArray(osg_colors, osg::Array::BIND_OVERALL);
+
+        geode->addDrawable(geom);
+
+        if (osg_coords->size() > 4) {
+            tessellator.retessellatePolygons(*geom);
+        }
+    };
+
+    double shapeArea = 0.0;
+    for (size_t i = 0; i < shape.size(); i++) {
+        const Position& p1 = shape[i];
+        const Position& p2 = shape[(i + 1) % shape.size()];
+        shapeArea += (p2.x() - p1.x()) * (p2.y() + p1.y());
+    }
+    bool ccw = shapeArea < 0; // If true - CCW, otherwise - CW
+
+    makeFace(baseZ, ccw);
+    if (height == 0.0f) return;
+    makeFace(topZ, !ccw);   // Top face
+    ss->setMode(GL_CULL_FACE, osg::StateAttribute::ON);
+
+    for (size_t i = 0; i < shape.size(); ++i) {
+        size_t j = (i + 1) % shape.size();
+        const Position& p1 = shape[i];
+        const Position& p2 = shape[j];
+
+        osg::ref_ptr<osg::Geometry> geom = new osg::Geometry();
+        osg::ref_ptr<osg::Vec3Array> osg_coords = new osg::Vec3Array();
+
+        if (ccw) {
+            osg_coords->push_back(osg::Vec3((float)p1.x(), (float)p1.y(), baseZ));
+            osg_coords->push_back(osg::Vec3((float)p2.x(), (float)p2.y(), baseZ));
+            osg_coords->push_back(osg::Vec3((float)p2.x(), (float)p2.y(), topZ));
+            osg_coords->push_back(osg::Vec3((float)p1.x(), (float)p1.y(), topZ));
+        } else {
+            osg_coords->push_back(osg::Vec3((float)p1.x(), (float)p1.y(), topZ));
+            osg_coords->push_back(osg::Vec3((float)p2.x(), (float)p2.y(), topZ));
+            osg_coords->push_back(osg::Vec3((float)p2.x(), (float)p2.y(), baseZ));
+            osg_coords->push_back(osg::Vec3((float)p1.x(), (float)p1.y(), baseZ));
+        }
+        geom->setVertexArray(osg_coords);
+        geom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::QUADS, 0, 4));
+
+        osg::Vec3 v1 = (*osg_coords)[1] - (*osg_coords)[0];
+        osg::Vec3 v2 = (*osg_coords)[2] - (*osg_coords)[1];
+        osg::Vec3 normal = v1 ^ v2;
+        normal.normalize();
+
+        osg::ref_ptr<osg::Vec3Array> osg_normals = new osg::Vec3Array();
+        osg_normals->push_back(normal);
+        geom->setNormalArray(osg_normals, osg::Array::BIND_OVERALL);
+
+        osg::ref_ptr<osg::Vec4ubArray> osg_colors = new osg::Vec4ubArray();
+        osg_colors->push_back(color);
+        geom->setColorArray(osg_colors, osg::Array::BIND_OVERALL);
+
+        geode->addDrawable(geom);
+    }
 }
 
 
@@ -818,16 +951,17 @@ GUIOSGBuilder::buildMovable(const MSVehicleType& type) {
 
 
 osg::Node*
-GUIOSGBuilder::buildPlane(const float length) {
+GUIOSGBuilder::buildPlane(const float baseZ) {
+    GUINet* net = static_cast<GUINet*>(MSNet::getInstance());
     osg::Geode* geode = new osg::Geode();
     osg::Geometry* geom = new osg::Geometry;
     geode->addDrawable(geom);
     osg::Vec3Array* coords = new osg::Vec3Array(4); // OSG needs float coordinates here
     geom->setVertexArray(coords);
-    (*coords)[0].set(.5f * length, .5f * length, -0.1f);
-    (*coords)[1].set(.5f * length, -.5f * length, -0.1f);
-    (*coords)[2].set(-.5f * length, -.5f * length, -0.1f);
-    (*coords)[3].set(-.5f * length, .5f * length, -0.1f);
+    (*coords)[0].set(net->myBoundary.xmax(), net->myBoundary.ymax(), baseZ);
+    (*coords)[1].set(net->myBoundary.xmax(), net->myBoundary.ymin(), baseZ);
+    (*coords)[2].set(net->myBoundary.xmin(), net->myBoundary.ymin(), baseZ);
+    (*coords)[3].set(net->myBoundary.xmin(), net->myBoundary.ymax(), baseZ);
     osg::Vec3Array* normals = new osg::Vec3Array(1); // OSG needs float coordinates here
     (*normals)[0].set(0, 0, 1);
     geom->setNormalArray(normals, osg::Array::BIND_PER_PRIMITIVE_SET);
