@@ -72,6 +72,7 @@ public:
     /// @brief set vehicle model body color
     static void setVehBodyColor(GUIOSGView::OSGMovable& m, osg::Vec4d color);
 
+    static osg::Node* buildSkybox(osg::Image* px, osg::Image* nx, osg::Image* py, osg::Image* ny, osg::Image* pz, osg::Image* nz);
     static osg::Node* buildPlane(const float length = 1000.f); // OSG needs float coordinates here
 
 private:
@@ -83,11 +84,16 @@ private:
     static void buildOSGJunctionGeometry(GUIJunctionWrapper& junction,
                                          osg::Group& addTo, osgUtil::Tessellator& tessellator);
 
+    static void buildOSGPolygonGeometry(const SUMOPolygon& polygon,
+                                        osg::Group& addTo, osgUtil::Tessellator& tessellator, float height);
+
     static void setShapeState(osg::ref_ptr<osg::ShapeDrawable> shape);
 
     static std::map<std::string, osg::ref_ptr<osg::Node> > myCars;
     static std::map<std::string, std::map<std::string, osg::ref_ptr<osg::Node>>> myCarsParts;
     static std::map<std::string, std::unordered_map<std::string, osg::ref_ptr<osg::Material>>> myCarsMaterials;
+    static std::map<std::string, osg::ref_ptr<osg::PositionAttitudeTransform> > myLoadedDecalTransforms;
+    static std::map<std::string, osg::ref_ptr<osg::Node> > myLoadedDecals;
 };
 
 /**

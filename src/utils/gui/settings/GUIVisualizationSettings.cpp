@@ -2269,6 +2269,7 @@ GUIVisualizationSettings::save(OutputDevice& dev) const {
     dev.writeAttr("show3DTLSDomes", show3DTLSDomes);
     dev.writeAttr("show3DHeadUpDisplay", show3DHeadUpDisplay);
     dev.writeAttr("generate3DTLSModels", generate3DTLSModels);
+    dev.writeAttr("useSkybox", useSkybox);
     dev.writeAttr("ambient3DLight", ambient3DLight);
     dev.writeAttr("diffuse3DLight", diffuse3DLight);
     dev.closeTag();
@@ -2295,6 +2296,9 @@ GUIVisualizationSettings::operator==(const GUIVisualizationSettings& v2) {
         return false;
     }
     if (generate3DTLSModels != v2.generate3DTLSModels) {
+        return false;
+    }
+    if (useSkybox != v2.useSkybox) {
         return false;
     }
     if (ambient3DLight != v2.ambient3DLight) {
