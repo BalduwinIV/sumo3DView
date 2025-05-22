@@ -55,6 +55,8 @@
 std::map<std::string, osg::ref_ptr<osg::Node> > GUIOSGBuilder::myCars;
 std::map<std::string, std::map<std::string, osg::ref_ptr<osg::Node>>> GUIOSGBuilder::myCarsParts;
 std::map<std::string, std::unordered_map<std::string, osg::ref_ptr<osg::Material>>> GUIOSGBuilder::myCarsMaterials;
+std::map<std::string, osg::ref_ptr<osg::PositionAttitudeTransform> > GUIOSGBuilder::myLoadedDecalTransforms;
+std::map<std::string, osg::ref_ptr<osg::Node> > GUIOSGBuilder::myLoadedDecals;
 
 // ===========================================================================
 // member method definitions
@@ -140,26 +142,47 @@ GUIOSGBuilder::buildOSGScene(osg::Node* const tlg, osg::Node* const tly, osg::No
 }
 
 
-void
+GUIOSGView::OSGLight*
 GUIOSGBuilder::buildLight(const GUISUMOAbstractView::Decal& d, osg::Group& addTo) {
+    GUIOSGView::OSGLight* newLight = new GUIOSGView::OSGLight;
+    newLight->name = d.filename;
     // each light must have a unique number
     osg::Light* light = new osg::Light(d.filename[5] - '0');
     // we set the light's position via a PositionAttitudeTransform object
-    light->setPosition(osg::Vec4(0.0, 0.0, 0.0, 1.0));
-    light->setDiffuse(osg::Vec4(1.0, 1.0, 1.0, 1.0));
-    light->setSpecular(osg::Vec4(1.0, 1.0, 1.0, 1.0));
-    light->setAmbient(osg::Vec4(1.0, 1.0, 1.0, 1.0));
+    // directional light
+    // light->setPosition(osg::Vec4(0.0, 0.0, 1.0, 1.0));
+    light->setPosition(osg::Vec4(d.width, d.height, d.altitude, d.layer));
+
+    light->setDiffuse(osg::Vec4(0.5, 0.5, 0.5, 1.0));
+    light->setSpecular(osg::Vec4(0.5, 0.5, 0.5, 1.0));
+    light->setAmbient(osg::Vec4(0.0, 0.0, 0.0, 1.0));
+    newLight->light = light;
+    // light->setDiffuse(osg::Vec4(d.width, d.width, d.width, 1));
+    // light->setSpecular(osg::Vec4(d.width, d.width, d.width, 1));
+    // light->setAmbient(osg::Vec4(d.width, d.width, d.width, 1));
 
     osg::LightSource* lightSource = new osg::LightSource();
     lightSource->setLight(light);
     lightSource->setLocalStateSetModes(osg::StateAttribute::ON);
     lightSource->setStateSetModes(*addTo.getOrCreateStateSet(), osg::StateAttribute::ON);
+    newLight->lightSource = lightSource;
 
     osg::PositionAttitudeTransform* lightTransform = new osg::PositionAttitudeTransform();
     lightTransform->addChild(lightSource);
     lightTransform->setPosition(osg::Vec3d(d.centerX, d.centerY, d.centerZ));
-    lightTransform->setScale(osg::Vec3d(0.1, 0.1, 0.1));
+    newLight->transform = lightTransform;
     addTo.addChild(lightTransform);
+
+    newLight->active = true;
+
+    return newLight;
+}
+
+
+void
+GUIOSGBuilder::updateLight(const GUISUMOAbstractView::Decal& d, GUIOSGView::OSGLight* light) {
+    light->light->setPosition(osg::Vec4(d.width, d.height, d.altitude, d.layer));
+    light->transform->setPosition(osg::Vec3d(d.centerX, d.centerY, d.centerZ));
 }
 
 
@@ -597,31 +620,34 @@ GUIOSGBuilder::buildTrafficLightDetails(MSTLLogicControl::TLSLogicVariants& vars
 
 void
 GUIOSGBuilder::buildDecal(const GUISUMOAbstractView::Decal& d, osg::Group& addTo) {
-    osg::Node* pLoadedModel = osgDB::readNodeFile(d.filename);
+    osg::Node* pLoadedModel;
     osg::PositionAttitudeTransform* base = new osg::PositionAttitudeTransform();
-    double zOffset = 0.;
-    if (pLoadedModel == nullptr) {
-        // check for 2D image
-        osg::Image* pImage = osgDB::readImageFile(d.filename);
-        if (pImage == nullptr) {
-            base = nullptr;
-            WRITE_ERRORF(TL("Could not load '%'."), d.filename);
-            return;
+    double zOffset = 0.0;
+
+    auto loadedDecalIt = myLoadedDecals.find(d.filename);
+    if (loadedDecalIt == myLoadedDecals.end()) {
+        myLoadedDecals[d.filename] = osgDB::readNodeFile(d.filename);
+        if (myLoadedDecals[d.filename] == nullptr) {
+            // check for 2D image
+            osg::Image* pImage = osgDB::readImageFile(d.filename);
+            if (pImage == nullptr) {
+                base = nullptr;
+                WRITE_ERRORF(TL("Could not load '%'."), d.filename);
+                return;
+            }
+            osg::Texture2D* texture = new osg::Texture2D();
+            texture->setImage(pImage);
+            osg::Geometry* quad = osg::createTexturedQuadGeometry(osg::Vec3d(-0.5 * d.width, -0.5 * d.height, 0.), osg::Vec3d(d.width, 0., 0.), osg::Vec3d(0., d.height, 0.));
+            quad->getOrCreateStateSet()->setTextureAttributeAndModes(0, texture);
+            osg::Geode* const pModel = new osg::Geode();
+            pModel->addDrawable(quad);
+            myLoadedDecals[d.filename] = pModel;
+            zOffset = d.layer;
         }
-        osg::Texture2D* texture = new osg::Texture2D();
-        texture->setImage(pImage);
-        osg::Geometry* quad = osg::createTexturedQuadGeometry(osg::Vec3d(-0.5 * d.width, -0.5 * d.height, 0.), osg::Vec3d(d.width, 0., 0.), osg::Vec3d(0., d.height, 0.));
-        quad->getOrCreateStateSet()->setTextureAttributeAndModes(0, texture);
-        osg::Geode* const pModel = new osg::Geode();
-        pModel->addDrawable(quad);
-        base->addChild(pModel);
-        zOffset = d.layer;
-    } else {
-        osg::ShadeModel* sm = new osg::ShadeModel();
-        sm->setMode(osg::ShadeModel::FLAT);
-        pLoadedModel->getOrCreateStateSet()->setAttribute(sm);
-        base->addChild(pLoadedModel);
     }
+    pLoadedModel = myLoadedDecals[d.filename];
+    base->addChild(pLoadedModel);
+    myLoadedDecalTransforms[d.filename] = base;
     osg::ComputeBoundsVisitor bboxCalc;
     base->accept(bboxCalc);
     const osg::BoundingBox& bbox = bboxCalc.getBoundingBox();
@@ -638,6 +664,26 @@ GUIOSGBuilder::buildDecal(const GUISUMOAbstractView::Decal& d, osg::Group& addTo
                                 osg::DegreesToRadians(d.tilt), osg::Vec3d(0, 1, 0),
                                 osg::DegreesToRadians(d.rot), osg::Vec3d(0, 0, 1)));
     addTo.addChild(base);
+}
+
+
+void GUIOSGBuilder::updateDecalTransform(const GUISUMOAbstractView::Decal &d) {
+    osg::ref_ptr<osg::PositionAttitudeTransform> base = myLoadedDecalTransforms[d.filename];
+    osg::ComputeBoundsVisitor bboxCalc;
+    base->accept(bboxCalc);
+    const osg::BoundingBox& bbox = bboxCalc.getBoundingBox();
+    WRITE_MESSAGEF(TL("Loaded decal '%' with bounding box % %."), d.filename, toString(Position(bbox.xMin(), bbox.yMin(), bbox.zMin())), toString(Position(bbox.xMax(), bbox.yMax(), bbox.zMax())));
+    // double xScale = d.width > 0 ? d.width / (bbox.xMax() - bbox.xMin()) : 1.;
+    // double yScale = d.height > 0 ? d.height / (bbox.yMax() - bbox.yMin()) : 1.;
+    // const double zScale = d.altitude > 0 ? d.altitude / (bbox.zMax() - bbox.zMin()) : 1.;
+    // if (d.width < 0 && d.height < 0 && d.altitude > 0) {
+    //     xScale = yScale = zScale;
+    // }
+    base->setScale(osg::Vec3d(d.width, d.height, d.altitude));
+    base->setPosition(osg::Vec3d(d.centerX, d.centerY, d.centerZ + d.layer));
+    base->setAttitude(osg::Quat(osg::DegreesToRadians(d.roll), osg::Vec3d(1, 0, 0),
+                                osg::DegreesToRadians(d.tilt), osg::Vec3d(0, 1, 0),
+                                osg::DegreesToRadians(d.rot), osg::Vec3d(0, 0, 1)));
 }
 
 

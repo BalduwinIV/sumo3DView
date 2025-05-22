@@ -60,7 +60,8 @@ public:
 
     static void buildDecal(const GUISUMOAbstractView::Decal& d, osg::Group& addTo);
 
-    static void buildLight(const GUISUMOAbstractView::Decal& d, osg::Group& addTo);
+    static GUIOSGView::OSGLight* buildLight(const GUISUMOAbstractView::Decal& d, osg::Group& addTo);
+    static void updateLight(const GUISUMOAbstractView::Decal& d, GUIOSGView::OSGLight* light);
 
     /// @brief Build traffic light models with poles and cantilevers automatically
     static void buildTrafficLightDetails(MSTLLogicControl::TLSLogicVariants& vars, osg::Node* const tlg, osg::Node* const tly, osg::Node* const tlr, osg::Node* const tlu, osg::Node* poleBase, osg::Group& addTo);
@@ -76,6 +77,8 @@ public:
     static osg::Node* buildSkybox(osg::Image* px, osg::Image* nx, osg::Image* py, osg::Image* ny, osg::Image* pz, osg::Image* nz);
 
     static osg::Node* buildPlane(const float baseZ = -0.1f); // OSG needs float coordinates here
+
+    static void updateDecalTransform(const GUISUMOAbstractView::Decal& d);
 private:
     static osg::PositionAttitudeTransform* createTrafficLightState(const GUISUMOAbstractView::Decal& d, osg::Node* tl, const double withPole, const double size, osg::Vec4d color);
 

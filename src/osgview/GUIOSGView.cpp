@@ -274,6 +274,11 @@ GUIOSGView::adoptViewSettings() {
     globalLight->setDiffuse(toOSGColorVector(myVisualizationSettings->diffuse3DLight));
     myViewer->getCamera()->setClearColor(toOSGColorVector(myVisualizationSettings->skyColor));
 
+    for (auto& lightPair : myLights) {
+        lightPair.second->light->setAmbient(toOSGColorVector(myVisualizationSettings->ambient3DLight));
+        lightPair.second->light->setDiffuse(toOSGColorVector(myVisualizationSettings->diffuse3DLight));
+    }
+
     // ground color
     osg::Geode* planeGeode = dynamic_cast<osg::Geode*>(myPlane->getChild(0));
     osg::Geometry* planeGeom = dynamic_cast<osg::Geometry*>(planeGeode->getChild(0));
@@ -437,37 +442,71 @@ GUIOSGView::onPaint(FXObject*, FXSelector, void*) {
     if (!isEnabled()) {
         return 1;
     }
+
+    // Make lights inactive
+    for (auto& pair : myLights) {
+        pair.second->active = false;
+    }
+
     myDecalsLockMutex.lock();
     for (GUISUMOAbstractView::Decal& d : myDecals) {
-        if (!d.initialised && d.filename.length() > 0) {
+        if (d.filename.length() > 0) {
             if (d.filename.length() == 6 && d.filename.substr(0, 5) == "light") {
-                GUIOSGBuilder::buildLight(d, *myRoot);
+                if (!d.initialised) {
+                    OSGLight* light = GUIOSGBuilder::buildLight(d, *myRoot);
+                    myLights[d.filename] = light;
+                    d.initialised = true;
+                    d.upToDate = true;
+                } else if (!d.upToDate) {
+                    GUIOSGBuilder::updateLight(d, myLights[d.filename]);
+                    d.upToDate = true;
+                }
+                myLights[d.filename]->active = true;
             } else if (d.filename.length() > 3 && d.filename.substr(0, 3) == "tl:") {
-                const int linkStringIdx = (int)d.filename.find(':', 3);
-                GUINet* net = (GUINet*) MSNet::getInstance();
-                try {
-                    const std::string tlLogic = d.filename.substr(3, linkStringIdx - 3);
-                    MSTLLogicControl::TLSLogicVariants& vars = net->getTLSControl().get(tlLogic);
-                    const int linkIdx = StringUtils::toInt(d.filename.substr(linkStringIdx + 1));
-                    if (linkIdx < 0 || linkIdx >= static_cast<int>(vars.getActive()->getLinks().size())) {
-                        throw NumberFormatException("");
+                if (!d.initialised) {
+                    const int linkStringIdx = (int)d.filename.find(':', 3);
+                    GUINet* net = (GUINet*) MSNet::getInstance();
+                    try {
+                        const std::string tlLogic = d.filename.substr(3, linkStringIdx - 3);
+                        MSTLLogicControl::TLSLogicVariants& vars = net->getTLSControl().get(tlLogic);
+                        const int linkIdx = StringUtils::toInt(d.filename.substr(linkStringIdx + 1));
+                        if (linkIdx < 0 || linkIdx >= static_cast<int>(vars.getActive()->getLinks().size())) {
+                            throw NumberFormatException("");
+                        }
+                        const MSLink* const link = vars.getActive()->getLinksAt(linkIdx)[0];
+                        osg::Group* tlNode = GUIOSGBuilder::getTrafficLight(d, vars, link, myGreenLight, myYellowLight, myRedLight, myRedYellowLight, myPoleBase, true, 0.5);
+                        tlNode->setName("tlLogic:" + tlLogic);
+                        myRoot->addChild(tlNode);
+                    } catch (NumberFormatException&) {
+                        WRITE_ERRORF(TL("Invalid link index in '%'."), d.filename);
+                    } catch (InvalidArgument&) {
+                        WRITE_ERRORF(TL("Unknown traffic light in '%'."), d.filename);
                     }
-                    const MSLink* const link = vars.getActive()->getLinksAt(linkIdx)[0];
-                    osg::Group* tlNode = GUIOSGBuilder::getTrafficLight(d, vars, link, myGreenLight, myYellowLight, myRedLight, myRedYellowLight, myPoleBase, true, 0.5);
-                    tlNode->setName("tlLogic:" + tlLogic);
-                    myRoot->addChild(tlNode);
-                } catch (NumberFormatException&) {
-                    WRITE_ERRORF(TL("Invalid link index in '%'."), d.filename);
-                } catch (InvalidArgument&) {
-                    WRITE_ERRORF(TL("Unknown traffic light in '%'."), d.filename);
+                    d.initialised = true;
+                    d.upToDate = true;
                 }
             } else {
-                GUIOSGBuilder::buildDecal(d, *myRoot);
+                if (!d.initialised) {
+                    GUIOSGBuilder::buildDecal(d, *myRoot);
+                    d.initialised = true;
+                    d.upToDate = true;
+                } else if (!d.upToDate) {
+                    GUIOSGBuilder::updateDecalTransform(d);
+                    d.upToDate = true;
+                }
             }
-            d.initialised = true;
         }
     }
     myDecalsLockMutex.unlock();
+
+    for (auto it = myLights.begin(); it != myLights.end();) {
+        if (!it->second->active) {
+            myRoot->removeChild(it->second->transform);
+            it = myLights.erase(it);
+        } else {
+            ++it;
+        }
+    }
 
     // reset active flag
     for (auto& item : myVehicles) {

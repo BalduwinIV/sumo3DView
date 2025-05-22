@@ -405,6 +405,8 @@ public:
         /// @brief Whether this image was initialised (inserted as a texture)
         bool initialised = false;
 
+        bool upToDate = false;
+
         /// @brief Whether this image should be skipped in 2D-views
         bool skip2D = false;
 

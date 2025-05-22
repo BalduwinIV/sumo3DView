@@ -137,6 +137,14 @@ public:
         bool active;
     };
 
+    struct OSGLight {
+        std::string name;
+        osg::ref_ptr<osg::Light> light;
+        osg::ref_ptr<osg::LightSource> lightSource;
+        osg::ref_ptr<osg::PositionAttitudeTransform> transform;
+        bool active;
+    };
+
     /// @brief constructor
     GUIOSGView(FXComposite* p, GUIMainWindow& app,
                GUISUMOViewParent* parent, GUINet& net, FXGLVisual* glVis,
@@ -384,6 +392,7 @@ private:
 
     std::map<MSVehicle*, OSGMovable > myVehicles;
     std::map<MSTransportable*, OSGMovable > myPersons;
+    std::map<std::string, OSGLight* > myLights;
 
     osg::ref_ptr<osg::Node> myGreenLight;
     osg::ref_ptr<osg::Node> myYellowLight;

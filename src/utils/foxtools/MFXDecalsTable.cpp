@@ -105,7 +105,7 @@ MFXDecalsTable::fillTable() {
     // get decals
     const auto decals = myDialogViewSettings->getSUMOAbstractView()->getDecals();
     // create columns
-    std::string columnsType = "ibfsssspscd";
+    std::string columnsType = "ibfsssssspppscd";
     for (int i = 0; i < (FXint)columnsType.size(); i++) {
         myColumns.push_back(new Column(this, i, columnsType.at(i)));
     }
@@ -121,16 +121,20 @@ MFXDecalsTable::fillTable() {
         row->getCells().at(2)->getTextField()->setText(decal.filename.c_str());
         row->getCells().at(3)->getTextField()->setText(toString(decal.centerX).c_str());
         row->getCells().at(4)->getTextField()->setText(toString(decal.centerY).c_str());
-        row->getCells().at(5)->getTextField()->setText(toString(decal.width).c_str());
-        row->getCells().at(6)->getTextField()->setText(toString(decal.height).c_str());
-        row->getCells().at(7)->getSpinner()->setValue(decal.rot);
-        row->getCells().at(8)->getTextField()->setText(toString(decal.layer).c_str());
+        row->getCells().at(5)->getTextField()->setText(toString(decal.centerZ).c_str());
+        row->getCells().at(6)->getTextField()->setText(toString(decal.width).c_str());
+        row->getCells().at(7)->getTextField()->setText(toString(decal.height).c_str());
+        row->getCells().at(8)->getTextField()->setText(toString(decal.altitude).c_str());
+        row->getCells().at(9)->getSpinner()->setValue(decal.rot);
+        row->getCells().at(10)->getSpinner()->setValue(decal.tilt);
+        row->getCells().at(11)->getSpinner()->setValue(decal.roll);
+        row->getCells().at(12)->getTextField()->setText(toString(decal.layer).c_str());
         if (decal.screenRelative) {
-            row->getCells().at(9)->getCheckButton()->setCheck(true);
-            row->getCells().at(9)->getCheckButton()->setText("true");
+            row->getCells().at(13)->getCheckButton()->setCheck(true);
+            row->getCells().at(13)->getCheckButton()->setText("true");
         } else {
-            row->getCells().at(9)->getCheckButton()->setCheck(false);
-            row->getCells().at(9)->getCheckButton()->setText("false");
+            row->getCells().at(13)->getCheckButton()->setCheck(false);
+            row->getCells().at(13)->getCheckButton()->setText("false");
         }
         myRows.push_back(row);
     }
@@ -138,11 +142,15 @@ MFXDecalsTable::fillTable() {
     myColumns.at(2)->setColumnLabel("filename", "");
     myColumns.at(3)->setColumnLabel("centerX", "");
     myColumns.at(4)->setColumnLabel("centerY", "");
-    myColumns.at(5)->setColumnLabel("width", "");
-    myColumns.at(6)->setColumnLabel("height", "");
-    myColumns.at(7)->setColumnLabel("rotation", "");
-    myColumns.at(8)->setColumnLabel("layer", "");
-    myColumns.at(9)->setColumnLabel("sRel", "screen relative");
+    myColumns.at(5)->setColumnLabel("centerZ", "");
+    myColumns.at(6)->setColumnLabel("width", "");
+    myColumns.at(7)->setColumnLabel("height", "");
+    myColumns.at(8)->setColumnLabel("altitude", "");
+    myColumns.at(9)->setColumnLabel("rotation", "");
+    myColumns.at(10)->setColumnLabel("tilt", "");
+    myColumns.at(11)->setColumnLabel("roll", "");
+    myColumns.at(12)->setColumnLabel("layer", "");
+    myColumns.at(13)->setColumnLabel("sRel", "screen relative");
     // adjust height (header + rows + add button)
     setHeight((numDecals + 2) * GUIDesignHeight);
     // call create to create all row's elements
@@ -278,16 +286,28 @@ MFXDecalsTable::onCmdEditRowString(FXObject* sender, FXSelector, void*) {
         // continue depending of string
         if (myRows.at(rowIndex)->getCells().at(2)->getTextField() == sender) {
             decals.at(rowIndex).filename = value;
+            decals.at(rowIndex).upToDate = false;
         } else if (myRows.at(rowIndex)->getCells().at(3)->getTextField() == sender) {
             decals.at(rowIndex).centerX = StringUtils::toDouble(value);
+            decals.at(rowIndex).upToDate = false;
         } else if (myRows.at(rowIndex)->getCells().at(4)->getTextField() == sender) {
             decals.at(rowIndex).centerY = StringUtils::toDouble(value);
+            decals.at(rowIndex).upToDate = false;
         } else if (myRows.at(rowIndex)->getCells().at(5)->getTextField() == sender) {
-            decals.at(rowIndex).width = StringUtils::toDouble(value);
+            decals.at(rowIndex).centerZ = StringUtils::toDouble(value);
+            decals.at(rowIndex).upToDate = false;
         } else if (myRows.at(rowIndex)->getCells().at(6)->getTextField() == sender) {
+            decals.at(rowIndex).width = StringUtils::toDouble(value);
+            decals.at(rowIndex).upToDate = false;
+        } else if (myRows.at(rowIndex)->getCells().at(7)->getTextField() == sender) {
             decals.at(rowIndex).height = StringUtils::toDouble(value);
+            decals.at(rowIndex).upToDate = false;
         } else if (myRows.at(rowIndex)->getCells().at(8)->getTextField() == sender) {
+            decals.at(rowIndex).altitude = StringUtils::toDouble(value);
+            decals.at(rowIndex).upToDate = false;
+        } else if (myRows.at(rowIndex)->getCells().at(12)->getTextField() == sender) {
             decals.at(rowIndex).layer = StringUtils::toDouble(value);
+            decals.at(rowIndex).upToDate = false;
         }
     }
     // update view
@@ -304,8 +324,15 @@ MFXDecalsTable::onCmdEditRowSpinner(FXObject* sender, FXSelector, void*) {
     const auto value = dynamic_cast<FXRealSpinner*>(sender)->getValue();
     // set filename
     for (int rowIndex = 0; rowIndex < (int)myRows.size(); rowIndex++) {
-        if (myRows.at(rowIndex)->getCells().at(7)->getSpinner() == sender) {
+        if (myRows.at(rowIndex)->getCells().at(9)->getSpinner() == sender) {
             decals.at(rowIndex).rot = value;
+            decals.at(rowIndex).upToDate = false;
+        } else if (myRows.at(rowIndex)->getCells().at(10)->getSpinner() == sender) {
+            decals.at(rowIndex).tilt = value;
+            decals.at(rowIndex).upToDate = false;
+        } else if (myRows.at(rowIndex)->getCells().at(11)->getSpinner() == sender) {
+            decals.at(rowIndex).roll = value;
+            decals.at(rowIndex).upToDate = false;
         }
     }
     // update view
@@ -324,8 +351,9 @@ MFXDecalsTable::onCmdEditRowCheckBox(FXObject* sender, FXSelector, void*) {
     checkButton->setText((checkButton->getCheck() == TRUE) ? "true" : "false");
     // set filename
     for (int rowIndex = 0; rowIndex < (int)myRows.size(); rowIndex++) {
-        if (myRows.at(rowIndex)->getCells().at(9)->getCheckButton() == sender) {
+        if (myRows.at(rowIndex)->getCells().at(13)->getCheckButton() == sender) {
             decals.at(rowIndex).screenRelative = (checkButton->getCheck() == TRUE) ? true : false;
+            decals.at(rowIndex).upToDate = false;
         }
     }
     // update view
