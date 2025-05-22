@@ -1,6 +1,6 @@
 # Blender 4.4.0
 # www.blender.org
-mtllib lightVehicle_LOD0.mtl
+mtllib lightVehicle.mtl
 o licence_plate_front
 v 0.167217 0.242684 1.742980
 v 0.167217 0.363097 1.742980
