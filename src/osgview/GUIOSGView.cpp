@@ -173,12 +173,12 @@ GUIOSGView::GUIOSGView(
     myRoot = GUIOSGBuilder::buildOSGScene(myGreenLight, myYellowLight, myRedLight, myRedYellowLight, myPoleBase, myPlane);
 
     // Create skybox
-    osg::Image* px = osgDB::readImageFile("px.png");
-    osg::Image* nx = osgDB::readImageFile("nx.png");
-    osg::Image* py = osgDB::readImageFile("ny.png");
-    osg::Image* ny = osgDB::readImageFile("py.png");
-    osg::Image* pz = osgDB::readImageFile("pz.png");
-    osg::Image* nz = osgDB::readImageFile("nz.png");
+    osg::Image* px = osgDB::readImageFile("skybox/px.png");
+    osg::Image* nx = osgDB::readImageFile("skybox/nx.png");
+    osg::Image* py = osgDB::readImageFile("skybox/ny.png");
+    osg::Image* ny = osgDB::readImageFile("skybox/py.png");
+    osg::Image* pz = osgDB::readImageFile("skybox/pz.png");
+    osg::Image* nz = osgDB::readImageFile("skybox/nz.png");
     if (px == 0 || nx == 0 || py == 0 || ny == 0 || pz == 0 || nz == 0) {
         WRITE_ERROR(TL("Could not load skybox image files."));
     }
