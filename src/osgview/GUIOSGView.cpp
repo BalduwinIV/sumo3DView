@@ -200,8 +200,8 @@ GUIOSGView::GUIOSGView(
     myViewer->setKeyEventSetsDone(0);
     myViewer->getCamera()->setGraphicsContext(myAdapter);
     myViewer->getCamera()->setViewport(0, 0, w, h);
-    myViewer->getCamera()->setNearFarRatio(0.0005); // does not work together with setUpDepthPartitionForCamera
-    // myViewer->getCamera()->setProjectionMatrixAsPerspective(75.0, w/h, 0.0005, 1.0);
+    // myViewer->getCamera()->setNearFarRatio(0.1); // does not work together with setUpDepthPartitionForCamera
+    myViewer->getCamera()->setProjectionMatrixAsPerspective(75.0, w/h, 0.01, 1.0);
     myViewer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
     myViewer->addEventHandler(new PickHandler(this));
     osg::Vec3d lookFrom, lookAt, up;
@@ -442,6 +442,15 @@ GUIOSGView::onPaint(FXObject*, FXSelector, void*) {
     if (!isEnabled()) {
         return 1;
     }
+
+    float cameraNearFarRatio;
+    osg::Vec3d cameraPosition = myCameraManipulator->getMatrix().getTrans();
+    if (cameraPosition.z() < 1000.0f) {
+        cameraNearFarRatio = 0.0002f;
+    } else {
+        cameraNearFarRatio = 0.01f;
+    }
+    myViewer->getCamera()->setNearFarRatio(cameraNearFarRatio);
 
     // Make lights inactive
     for (auto& pair : myLights) {

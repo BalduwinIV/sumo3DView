@@ -221,6 +221,14 @@ GUIOSGManipulator::handleKeyDown(const osgGA::GUIEventAdapter& ea, osgGA::GUIAct
             myMove.x() -= myMoveSpeed;
             result = true;
             break;
+        case osgGA::GUIEventAdapter::KEY_E:
+            myMove.y() += myMoveSpeed;
+            result = true;
+            break;
+        case osgGA::GUIEventAdapter::KEY_Q:
+            myMove.y() -= myMoveSpeed;
+            result = true;
+            break;
     }
     _center += getMatrix().getRotate() * myMove;
     return result;
@@ -235,6 +243,8 @@ GUIOSGManipulator::handleKeyUp(const osgGA::GUIEventAdapter& ea, osgGA::GUIActio
         case osgGA::GUIEventAdapter::KEY_Down:
         case osgGA::GUIEventAdapter::KEY_Right:
         case osgGA::GUIEventAdapter::KEY_Left:
+        case osgGA::GUIEventAdapter::KEY_E:
+        case osgGA::GUIEventAdapter::KEY_Q:
             myMove.set(0, 0, 0);
             return true;
         case osgGA::GUIEventAdapter::KEY_F:
