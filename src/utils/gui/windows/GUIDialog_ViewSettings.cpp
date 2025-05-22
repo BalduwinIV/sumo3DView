@@ -724,6 +724,7 @@ GUIDialog_ViewSettings::onCmdColorChange(FXObject* sender, FXSelector, void* /*v
     tmpSettings.show3DTLSLinkMarkers = (myShow3DTLSLinkMarkers->getCheck() != FALSE);
     tmpSettings.show3DHeadUpDisplay = (myShow3DHeadUpDisplay->getCheck() != FALSE);
     tmpSettings.generate3DTLSModels = (myGenerate3DTLSModels->getCheck() != FALSE);
+    tmpSettings.useSkybox = (myUseSkybox->getCheck() != FALSE);
     const unsigned char lightFactor = (unsigned char)myLight3DFactor->getValue();
     tmpSettings.ambient3DLight.set(lightFactor / 2, lightFactor / 2, lightFactor / 2, 255);
     tmpSettings.diffuse3DLight.set(lightFactor, lightFactor, lightFactor, 255);
@@ -2437,6 +2438,8 @@ GUIDialog_ViewSettings::build3DFrame(FXTabBook* tabbook) {
     myGenerate3DTLSModels->setCheck(mySettings->generate3DTLSModels);
     myShow3DHeadUpDisplay = new FXCheckButton(m82, TL("Show head-up display"), this, MID_SIMPLE_VIEW_COLORCHANGE);
     myShow3DHeadUpDisplay->setCheck(mySettings->show3DHeadUpDisplay);
+    myUseSkybox = new FXCheckButton(m82, TL("Use skybox"), this, MID_SIMPLE_VIEW_COLORCHANGE);
+    myUseSkybox->setCheck(mySettings->useSkybox);
 
     new FXHorizontalSeparator(verticalFrame, GUIDesignHorizontalSeparator);
 
@@ -2445,14 +2448,16 @@ GUIDialog_ViewSettings::build3DFrame(FXTabBook* tabbook) {
     myLight3DFactor = new FXSpinner(m2, 10, this, MID_SIMPLE_VIEW_COLORCHANGE, GUIDesignViewSettingsSpinDial1);
     myLight3DFactor->setRange(0, 255);
     myLight3DFactor->setValue(mySettings->diffuse3DLight.red());
-    /*
+    myLight3DFactor->setValue(mySettings->diffuse3DLight.green());
+    myLight3DFactor->setValue(mySettings->diffuse3DLight.blue());
+
     new FXLabel(m2, "Ambient", nullptr, GUIDesignViewSettingsLabel1);
     myAmbient3DLight = new FXColorWell(m2, MFXUtils::getFXColor(mySettings->ambient3DLight), this, MID_SIMPLE_VIEW_COLORCHANGE, GUIDesignViewSettingsColorWell);
     myAmbient3DLight->setOpaqueOnly(true);
     new FXLabel(m2, "Diffuse", nullptr, GUIDesignViewSettingsLabel1);
     myDiffuse3DLight = new FXColorWell(m2, MFXUtils::getFXColor(mySettings->diffuse3DLight), this, MID_SIMPLE_VIEW_COLORCHANGE, GUIDesignViewSettingsColorWell);
     myDiffuse3DLight->setOpaqueOnly(true);
-    */
+
     new FXLabel(m2, TL("Sky color"), nullptr, GUIDesignViewSettingsLabel1);
     mySkyColor = new FXColorWell(m2, MFXUtils::getFXColor(mySettings->skyColor), this, MID_SIMPLE_VIEW_COLORCHANGE, GUIDesignViewSettingsColorWell);
     mySkyColor->setOpaqueOnly(true);

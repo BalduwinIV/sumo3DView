@@ -466,9 +466,10 @@ protected:
     FXCheckButton* myShow3DTLSDomes = nullptr;
     FXCheckButton* myShow3DHeadUpDisplay = nullptr;
     FXCheckButton* myGenerate3DTLSModels = nullptr;
+    FXCheckButton* myUseSkybox = nullptr;
     FXSpinner* myLight3DFactor = nullptr;
-    //FXColorWell* myAmbient3DLight = nullptr;
-    //FXColorWell* myDiffuse3DLight = nullptr;
+    FXColorWell* myAmbient3DLight = nullptr;
+    FXColorWell* myDiffuse3DLight = nullptr;
     FXColorWell* mySkyColor = nullptr;
 
     /// @brief openGL

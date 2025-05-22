@@ -370,6 +370,7 @@ protected:
     osg::ref_ptr<osgViewer::Viewer> myViewer;
     osg::ref_ptr<osg::Group> myRoot;
     osg::ref_ptr<osg::MatrixTransform> myPlane;
+    osg::ref_ptr<osg::MatrixTransform> mySkybox;
     osg::ref_ptr<osg::Camera> myHUD;
     osg::ref_ptr<osg::Geode> myTextNode;
     osg::ref_ptr<osgText::Text> myText;

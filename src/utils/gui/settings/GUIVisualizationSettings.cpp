@@ -652,6 +652,7 @@ GUIVisualizationSettings::GUIVisualizationSettings(const std::string& _name, boo
     show3DTLSDomes(true),
     generate3DTLSModels(false),
     show3DHeadUpDisplay(true),
+    useSkybox(true),
     ambient3DLight(OSG_color_AMBIENT),
     diffuse3DLight(OSG_color_DIFFUSE),
     skyColor(OSG_color_SKY),

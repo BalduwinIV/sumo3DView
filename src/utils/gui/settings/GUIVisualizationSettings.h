@@ -1029,6 +1029,9 @@ public:
     /// @brief whether to draw the head up display items
     bool show3DHeadUpDisplay;
 
+    /// @brief whether to use skybox in the scene or plain sky color
+    bool useSkybox;
+
     /// @brief 3D material light components
     RGBColor ambient3DLight;
     RGBColor diffuse3DLight;

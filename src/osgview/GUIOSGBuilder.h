@@ -90,5 +90,22 @@ private:
     static std::map<std::string, std::unordered_map<std::string, osg::ref_ptr<osg::Material>>> myCarsMaterials;
 };
 
+/**
+ * @class SkyBox
+ * @brief Implements skybox object.
+ */
+class SkyBox : public osg::Transform {
+public:
+    SkyBox();
+    SkyBox( const SkyBox& copy, osg::CopyOp copyop = osg::CopyOp::SHALLOW_COPY ) : osg::Transform(copy, copyop) {}
+
+    void setEnvironmentMap(osg::Image* px, osg::Image* nx, osg::Image* py, osg::Image* ny, osg::Image* pz, osg::Image* nz);
+
+    bool computeLocalToWorldMatrix(osg::Matrix &matrix, osg::NodeVisitor *) const override;
+    bool computeWorldToLocalMatrix(osg::Matrix &matrix, osg::NodeVisitor *) const override;
+protected:
+    virtual ~SkyBox() = default;
+};
+
 
 #endif

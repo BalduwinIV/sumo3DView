@@ -40,6 +40,7 @@
 #include <utils/common/SUMOVehicleClass.h>
 #include <utils/geom/GeomHelper.h>
 #include <utils/gui/windows/GUISUMOAbstractView.h>
+#include "utils/gui/globjects/GUIShapeContainer.h"
 
 #include "GUIOSGView.h"
 #include "GUIOSGBuilder.h"
@@ -840,6 +841,108 @@ GUIOSGBuilder::buildPlane(const float length) {
     ss->setMode(GL_BLEND, osg::StateAttribute::OVERRIDE | osg::StateAttribute::PROTECTED | osg::StateAttribute::ON);
 
     return geode;
+}
+
+
+SkyBox::SkyBox() {
+    setReferenceFrame(ABSOLUTE_RF); // Ensure the skybox stays fixed relative to the camera
+    setCullingActive(false); // Disable culling so all faces of the skybox are always rendered
+
+    osg::StateSet* ss = getOrCreateStateSet();
+    ss->setAttributeAndModes(new osg::Depth(osg::Depth::LEQUAL, 0.99f, 1.0f)); // Ensure skybox renders at max depth (background)
+    ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+    ss->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
+}
+
+
+void SkyBox::setEnvironmentMap(osg::Image *px, osg::Image *nx, osg::Image *py, osg::Image *ny, osg::Image *pz, osg::Image *nz) {
+    osg::ref_ptr<osg::TextureCubeMap> cubeMap = new osg::TextureCubeMap();
+
+    // Assign images to corresponding cube map faces
+    cubeMap->setImage(osg::TextureCubeMap::POSITIVE_X, px);
+    cubeMap->setImage(osg::TextureCubeMap::NEGATIVE_X, nx);
+    cubeMap->setImage(osg::TextureCubeMap::POSITIVE_Y, py);
+    cubeMap->setImage(osg::TextureCubeMap::NEGATIVE_Y, ny);
+    cubeMap->setImage(osg::TextureCubeMap::POSITIVE_Z, pz);
+    cubeMap->setImage(osg::TextureCubeMap::NEGATIVE_Z, nz);
+
+    // Set texture wrapping and filtering modes
+    cubeMap->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
+    cubeMap->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
+    cubeMap->setWrap(osg::Texture::WRAP_R, osg::Texture::CLAMP_TO_EDGE);
+    cubeMap->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR_MIPMAP_LINEAR);
+    cubeMap->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR_MIPMAP_LINEAR);
+    cubeMap->setResizeNonPowerOfTwoHint(false);
+    getOrCreateStateSet()->setTextureAttributeAndModes(0, cubeMap.get(), osg::StateAttribute::ON);
+}
+
+
+bool SkyBox::computeLocalToWorldMatrix( osg::Matrix& matrix, osg::NodeVisitor* nv ) const
+{
+    if ( nv && nv->getVisitorType() == osg::NodeVisitor::CULL_VISITOR) {
+        osgUtil::CullVisitor* cv = static_cast<osgUtil::CullVisitor*>( nv );
+
+        // Move skybox to camera position.
+        matrix.preMult( osg::Matrix::translate(cv->getEyeLocal()) );
+        return true;
+    }
+    return osg::Transform::computeLocalToWorldMatrix( matrix, nv );
+}
+
+bool SkyBox::computeWorldToLocalMatrix( osg::Matrix& matrix, osg::NodeVisitor* nv ) const
+{
+    if ( nv && nv->getVisitorType()==osg::NodeVisitor::CULL_VISITOR )
+    {
+        osgUtil::CullVisitor* cv = static_cast<osgUtil::CullVisitor*>( nv );
+
+        // Remove the camera's position effect when calculating local coordinates.
+        matrix.postMult( osg::Matrix::translate(-cv->getEyeLocal()) );
+        return true;
+    }
+    return osg::Transform::computeWorldToLocalMatrix( matrix, nv );
+}
+
+osg::Node*
+GUIOSGBuilder::buildSkybox(osg::Image* px, osg::Image* nx, osg::Image* py, osg::Image* ny, osg::Image* pz, osg::Image* nz) {
+    osg::Geode* geode = new osg::Geode();
+    osg::ref_ptr<osg::Geometry> geom = new osg::Geometry();
+
+    // Define skybox cube vertices
+    osg::ref_ptr<osg::Vec3Array> vertices = new osg::Vec3Array(8);
+    float size = 5000.0f;
+    (*vertices)[0].set(-size, -size, -size);
+    (*vertices)[1].set( size, -size, -size);
+    (*vertices)[2].set( size,  size, -size);
+    (*vertices)[3].set(-size,  size, -size);
+    (*vertices)[4].set(-size, -size,  size);
+    (*vertices)[5].set( size, -size,  size);
+    (*vertices)[6].set( size,  size,  size);
+    (*vertices)[7].set(-size,  size,  size);
+
+    // Define skybox cube faces
+    osg::ref_ptr<osg::DrawElementsUInt> indices = new osg::DrawElementsUInt(GL_QUADS, 24);
+    int indicesInt[24] = {
+        1, 0, 3, 2, // Front face
+        4, 5, 6, 7, // Back face
+        5, 1, 2, 6, // Right face
+        0, 4, 7, 3, // Left face
+        7, 6, 2, 3, // Top face
+        0, 1, 5, 4  // Bottom face
+    };
+    for (int i = 0; i < 24; i++) {
+        (*indices)[i] = indicesInt[i];
+    }
+
+    geom->setVertexArray(vertices);
+    geom->addPrimitiveSet(indices);
+    geode->addDrawable(geom);
+    geode->setCullingActive(false); // Ensure skybox is always rendered
+
+    osg::ref_ptr<SkyBox> skybox = new SkyBox();
+    skybox->getOrCreateStateSet()->setTextureAttributeAndModes(0, new osg::TexGen);
+    skybox->setEnvironmentMap(px, nx, py, ny, pz, nz);
+    skybox->addChild(geode);
+    return skybox.release();
 }
 
 

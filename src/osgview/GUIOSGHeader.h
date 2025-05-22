@@ -40,6 +40,7 @@
 
 // OSG Headers
 #include <osg/ComputeBoundsVisitor>
+#include <osg/Depth>
 #include <osg/Geode>
 #include <osg/Geometry>
 #include <osg/Group>
@@ -53,7 +54,9 @@
 #include <osg/ShadeModel>
 #include <osg/State>
 #include <osg/ShapeDrawable>
+#include <osg/TexGen>
 #include <osg/Texture2D>
+#include <osg/TextureCubeMap>
 #include <osg/Vec4>
 #include <osg/Version>
 #include <osg/ref_ptr>

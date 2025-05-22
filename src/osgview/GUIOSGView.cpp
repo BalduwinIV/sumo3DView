@@ -175,6 +175,25 @@ GUIOSGView::GUIOSGView(
     myPlane->addChild(GUIOSGBuilder::buildPlane((float)(zFar - zNear)));
     myPlane->addUpdateCallback(new PlaneMoverCallback(myViewer->getCamera()));
     myRoot->addChild(myPlane);
+
+    // Create skybox
+    osg::Image* px = osgDB::readImageFile("px.png");
+    osg::Image* nx = osgDB::readImageFile("nx.png");
+    osg::Image* py = osgDB::readImageFile("ny.png");
+    osg::Image* ny = osgDB::readImageFile("py.png");
+    osg::Image* pz = osgDB::readImageFile("pz.png");
+    osg::Image* nz = osgDB::readImageFile("nz.png");
+    if (px == 0 || nx == 0 || py == 0 || ny == 0 || pz == 0 || nz == 0) {
+        WRITE_ERROR(TL("Could not load skybox image files."));
+    }
+
+    mySkybox = new osg::MatrixTransform();
+    osg::Node* skybox = GUIOSGBuilder::buildSkybox(px, nx, py, ny, pz, nz);
+    // By default, Y axis is considered as a top of the world in skybox textures, but in SUMO case Z axis should be top, so it is required to rotate -90 degrees around X axis.
+    mySkybox->setMatrix(osg::Matrix::rotate(-osg::PI_2, osg::X_AXIS));
+    mySkybox->addChild(skybox);
+    myRoot->addChild(mySkybox);
+
     // add the stats handler
     osgViewer::StatsHandler* statsHandler = new osgViewer::StatsHandler();
     statsHandler->setKeyEventTogglesOnScreenStats(osgGA::GUIEventAdapter::KEY_I);
@@ -283,6 +302,8 @@ GUIOSGView::adoptViewSettings() {
     myViewer->getCamera()->setCullMask(cullMask);
     unsigned int hudCullMask = (myVisualizationSettings->show3DHeadUpDisplay) ? 0xFFFFFFFF : 0;
     myHUD->setCullMask(hudCullMask);
+
+    mySkybox->setNodeMask(myVisualizationSettings->useSkybox ? 0xFFFFFFFF : 0x0);
 }
 
 
