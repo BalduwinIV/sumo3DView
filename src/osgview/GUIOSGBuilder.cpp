@@ -825,12 +825,6 @@ void
 GUIOSGBuilder::setVehBodyColor(GUIOSGView::OSGMovable& m, osg::Vec4ub color) {
     auto carIt = myColoredCars[m.osgFile].find(color);
     if (carIt == myColoredCars[m.osgFile].end()) {
-        // Clone from myCar
-        if (myColoredCars[m.osgFile].size() > 3) {
-            return;
-            // m.pos->removeChild(0, 1);
-            // m.pos->addChild(myColoredCars[m.osgFile][rand() % 3]);
-        }
         m.pos = dynamic_cast<osg::PositionAttitudeTransform*>(m.pos->clone(osg::CopyOp::DEEP_COPY_ALL));
         extractMaterials(m.pos->getChild(0), m.mat);
 
