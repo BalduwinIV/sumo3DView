@@ -565,7 +565,7 @@ GUIOSGView::onPaint(FXObject*, FXSelector, void*) {
                     col = myVisualizationSettings->vehicleColorer.getScheme().getColor(veh->getColorValue(*myVisualizationSettings, myVisualizationSettings->vehicleColorer.getActive()));
                 }
                 // col = RGBColor(rand() % 255, rand() % 255, rand() % 255, 255);
-                GUIOSGBuilder::setVehBodyColor(myVehicles[veh], osg::Vec4d(col.red() / 255., col.green() / 255., col.blue() / 255., col.alpha() / 255.));
+                GUIOSGBuilder::setVehBodyColor(myVehicles[veh], osg::Vec4ub(col.red(), col.green(), col.blue(), col.alpha()));
                 myVehicles[veh].lights->setValue(0, veh->signalSet(MSVehicle::VEH_SIGNAL_BLINKER_RIGHT | MSVehicle::VEH_SIGNAL_BLINKER_EMERGENCY));
                 myVehicles[veh].lights->setValue(1, veh->signalSet(MSVehicle::VEH_SIGNAL_BLINKER_LEFT | MSVehicle::VEH_SIGNAL_BLINKER_EMERGENCY));
                 myVehicles[veh].lights->setValue(2, veh->signalSet(MSVehicle::VEH_SIGNAL_BRAKELIGHT));

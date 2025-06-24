@@ -45,6 +45,17 @@ class MSVehicleType;
 class MSEdge;
 class GUIJunctionWrapper;
 
+namespace std {
+    template <>
+    struct hash<osg::Vec4ub> {
+        std::size_t operator()(const osg::Vec4ub& v) const noexcept {
+            return (static_cast<std::size_t>(v.r()) << 24) |
+                    (static_cast<std::size_t>(v.g()) << 16) |
+                    (static_cast<std::size_t>(v.b()) << 8) |
+                    static_cast<std::size_t>(v.a());
+        }
+    };
+}
 
 // ===========================================================================
 // class definitions
@@ -72,7 +83,7 @@ public:
     static GUIOSGView::OSGMovable buildMovable(const MSVehicleType& type);
 
     /// @brief set vehicle model body color
-    static void setVehBodyColor(GUIOSGView::OSGMovable& m, osg::Vec4d color);
+    static void setVehBodyColor(GUIOSGView::OSGMovable& m, osg::Vec4ub color);
 
     static osg::Node* buildSkybox(osg::Image* px, osg::Image* nx, osg::Image* py, osg::Image* ny, osg::Image* pz, osg::Image* nz);
 
@@ -94,6 +105,7 @@ private:
     static void setShapeState(osg::ref_ptr<osg::ShapeDrawable> shape);
 
     static std::map<std::string, osg::ref_ptr<osg::Node> > myCars;
+    static std::map<std::string, std::map<osg::Vec4ub, osg::ref_ptr<osg::Node>>> myColoredCars;
     static std::map<std::string, std::map<std::string, osg::ref_ptr<osg::Node>>> myCarsParts;
     static std::map<std::string, std::unordered_map<std::string, osg::ref_ptr<osg::Material>>> myCarsMaterials;
     static std::map<std::string, osg::ref_ptr<osg::PositionAttitudeTransform> > myLoadedDecalTransforms;

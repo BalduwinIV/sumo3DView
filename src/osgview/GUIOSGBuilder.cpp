@@ -53,6 +53,7 @@
 // ===========================================================================
 
 std::map<std::string, osg::ref_ptr<osg::Node> > GUIOSGBuilder::myCars;
+std::map<std::string, std::map<osg::Vec4ub, osg::ref_ptr<osg::Node>>> GUIOSGBuilder::myColoredCars;
 std::map<std::string, std::map<std::string, osg::ref_ptr<osg::Node>>> GUIOSGBuilder::myCarsParts;
 std::map<std::string, std::unordered_map<std::string, osg::ref_ptr<osg::Material>>> GUIOSGBuilder::myCarsMaterials;
 std::map<std::string, osg::ref_ptr<osg::PositionAttitudeTransform> > GUIOSGBuilder::myLoadedDecalTransforms;
@@ -821,14 +822,31 @@ void extractMaterials(osg::Node* node, std::unordered_map<std::string, osg::ref_
 
 
 void
-GUIOSGBuilder::setVehBodyColor(GUIOSGView::OSGMovable& m, osg::Vec4d color) {
-    auto it = m.mat.find("body");
-    if (it == m.mat.end()) {
-        for (auto& pair : m.mat) {
-            pair.second->setDiffuse(osg::Material::FRONT_AND_BACK, color);
+GUIOSGBuilder::setVehBodyColor(GUIOSGView::OSGMovable& m, osg::Vec4ub color) {
+    auto carIt = myColoredCars[m.osgFile].find(color);
+    if (carIt == myColoredCars[m.osgFile].end()) {
+        // Clone from myCar
+        if (myColoredCars[m.osgFile].size() > 3) {
+            return;
+            // m.pos->removeChild(0, 1);
+            // m.pos->addChild(myColoredCars[m.osgFile][rand() % 3]);
         }
+        m.pos = dynamic_cast<osg::PositionAttitudeTransform*>(m.pos->clone(osg::CopyOp::DEEP_COPY_ALL));
+        extractMaterials(m.pos->getChild(0), m.mat);
+
+        auto it = m.mat.find("body");
+        if (it == m.mat.end()) {
+            for (auto& pair : m.mat) {
+                pair.second->setDiffuse(osg::Material::FRONT_AND_BACK, osg::Vec4d(color.r() / 255., color.g() / 255., color.b() / 255., color.a() / 255.));
+            }
+        } else {
+            it->second->setDiffuse(osg::Material::FRONT, osg::Vec4d(color.r() / 255., color.g() / 255., color.b() / 255., color.a() / 255.));
+        }
+
+        myColoredCars[m.osgFile][color] = m.pos->getChild(0);
     } else {
-        it->second->setDiffuse(osg::Material::FRONT, color);
+        m.pos->removeChild(0, 1);
+        m.pos->addChild(carIt->second);
     }
 }
 
@@ -870,6 +888,7 @@ GUIOSGBuilder::buildMovable(const MSVehicleType& type) {
     m.pos = new osg::PositionAttitudeTransform();
     double enlarge = 0.05;
     const std::string& osgFile = type.getOSGFile();
+    m.osgFile = osgFile;
     if (myCars.find(osgFile) == myCars.end()) {
         myCars[osgFile] = osgDB::readNodeFile(osgFile);
         extractMaterials(myCars[osgFile], myCarsMaterials[osgFile], VERBOSE_MODEL_EXTRACTION);

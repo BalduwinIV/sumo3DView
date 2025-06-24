@@ -130,6 +130,7 @@ public:
 
     /// @brief struct for OSG movable elements
     struct OSGMovable {
+        std::string osgFile;
         osg::ref_ptr<osg::PositionAttitudeTransform> pos;
         osg::ref_ptr<osg::ShapeDrawable> geom;
         std::unordered_map<std::string, osg::ref_ptr<osg::Material>> mat;
